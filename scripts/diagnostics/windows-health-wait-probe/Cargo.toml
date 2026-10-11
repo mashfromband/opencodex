@@ -3,6 +3,11 @@ name = "ocx-cause-probe"
 version = "0.1.0"
 edition = "2024"
 publish = false
+default-run = "ocx-cause-probe"
+
+[[bin]]
+name = "wct-contract-fixture"
+path = "fixtures/wct-contract-fixture.rs"
 
 [dependencies]
 serde_json = "1"
@@ -10,4 +15,4 @@ serde_json = "1"
 [workspace]
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_ProcessStatus", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Diagnostics_Debug"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Threading", "Win32_System_ProcessStatus", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Diagnostics_Debug", "Win32_System_LibraryLoader", "Win32_System_SystemInformation", "Wdk_System_Threading"] }

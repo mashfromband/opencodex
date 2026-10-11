@@ -70,6 +70,7 @@ fn probe(port: u16, pid: u32, timeout: Duration) -> Value {
     let start_ms = epoch_ms();
     let started = Instant::now();
     let mut received_ms = None;
+    let mut sent_ms = None;
     let outcome = (|| -> std::io::Result<bool> {
         let address = SocketAddr::from(([127, 0, 0, 1], port));
         let mut socket = TcpStream::connect_timeout(&address, timeout)?;
@@ -90,6 +91,7 @@ fn probe(port: u16, pid: u32, timeout: Duration) -> Value {
             }
             pending = &pending[written..];
         }
+        sent_ms = Some(epoch_ms());
         let mut bytes = Vec::new();
         loop {
             socket.set_read_timeout(Some(left()?))?;
@@ -150,8 +152,17 @@ fn probe(port: u16, pid: u32, timeout: Duration) -> Value {
             && body["service"] == "opencodex"
             && body["status"] == "ok")
     })();
-    json!({"start_ms":start_ms,"end_ms":epoch_ms(),"received_ms":received_ms,"elapsed_ms":started.elapsed().as_millis(),
+    json!({"start_ms":start_ms,"end_ms":epoch_ms(),"sent_ms":sent_ms,"received_ms":received_ms,"elapsed_ms":started.elapsed().as_millis(),
         "healthy":outcome.as_ref().copied().unwrap_or(false),"error":outcome.err().map(|e|format!("{:?}",e.kind()))})
+}
+
+fn within_response_wait(health: &Value, at: u64) -> bool {
+    health["sent_ms"].as_u64().is_some_and(|sent| {
+        health["received_ms"]
+            .as_u64()
+            .or_else(|| health["end_ms"].as_u64())
+            .is_some_and(|end| sent <= at && at < end)
+    })
 }
 
 fn during_probe(
@@ -192,6 +203,10 @@ fn during_probe(
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = env::args().skip(1).collect();
+    if args.len() == 2 && args[0] == "--resolve-syscall" {
+        println!("{}", win::resolve_local_syscall(args[1].parse()?));
+        return Ok(());
+    }
     if args.len() == 3 && args[0] == "--snapshot" {
         let process = win::Process::open(args[1].parse()?)?;
         if process.born != args[2].parse::<u64>()? || !process.live() {
@@ -233,7 +248,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             pid,
             timeout,
             &[
-                Duration::from_secs(1),
+                Duration::from_millis(100),
                 Duration::from_secs(5),
                 Duration::from_secs(10),
             ],
@@ -257,6 +272,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 c["during_health_wait"] = json!(c["snapshot"]["at_ms"].as_u64().is_some_and(
                     |at| at < end && at >= health["start_ms"].as_u64().unwrap_or(u64::MAX)
                 ));
+                c["during_response_wait"] = json!(
+                    c["snapshot"]["at_ms"]
+                        .as_u64()
+                        .is_some_and(|at| within_response_wait(&health, at))
+                );
             }
             writeln!(
                 output,
@@ -283,6 +303,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn response_wait_excludes_connect_and_completed_reply_boundaries() {
+        let healthy = json!({"start_ms":10,"sent_ms":20,"received_ms":40,"end_ms":45});
+        assert!(!within_response_wait(&healthy, 10));
+        assert!(!within_response_wait(&healthy, 19));
+        assert!(within_response_wait(&healthy, 20));
+        assert!(within_response_wait(&healthy, 39));
+        assert!(!within_response_wait(&healthy, 40));
+        assert!(!within_response_wait(&healthy, 45));
+        assert!(!within_response_wait(
+            &json!({"start_ms":10,"sent_ms":null,"end_ms":45}),
+            30
+        ));
+        assert!(within_response_wait(
+            &json!({"sent_ms":20,"received_ms":null,"end_ms":45}),
+            44
+        ));
+        assert!(!within_response_wait(
+            &json!({"sent_ms":20,"received_ms":null,"end_ms":45}),
+            45
+        ));
+    }
     fn listener(delay: Duration) -> (u16, std::thread::JoinHandle<()>) {
         let listener = std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).unwrap();
         let port = listener.local_addr().unwrap().port();

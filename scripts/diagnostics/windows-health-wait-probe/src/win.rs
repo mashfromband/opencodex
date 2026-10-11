@@ -1,13 +1,15 @@
 use serde_json::{Value, json};
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle as ProcessHandle};
 use std::{io, mem::size_of};
+#[path = "syscall.rs"]
+mod syscall;
 use windows_sys::Win32::{
     Foundation::{CloseHandle, FILETIME, GetLastError, HANDLE, INVALID_HANDLE_VALUE, WAIT_TIMEOUT},
     System::{
         Diagnostics::{
             Debug::{
                 CloseThreadWaitChainSession, GetThreadWaitChain, OpenThreadWaitChainSession,
-                WAITCHAIN_NODE_INFO, WCT_MAX_NODE_COUNT, WctThreadType,
+                WAITCHAIN_NODE_INFO, WCT_MAX_NODE_COUNT, WCT_OUT_OF_PROC_FLAG, WctThreadType,
             },
             ToolHelp::{
                 CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
@@ -18,10 +20,10 @@ use windows_sys::Win32::{
             GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
         },
         Threading::{
-            GetProcessIdOfThread, GetProcessTimes, GetThreadTimes, OpenProcess, OpenThread,
-            PROCESS_QUERY_INFORMATION, PROCESS_SYNCHRONIZE, PROCESS_VM_READ,
-            QueryFullProcessImageNameW, THREAD_QUERY_LIMITED_INFORMATION, THREAD_SYNCHRONIZE,
-            WaitForSingleObject,
+            GetProcessIdOfThread, GetProcessIoCounters, GetProcessTimes, GetThreadTimes,
+            IO_COUNTERS, OpenProcess, OpenThread, PROCESS_QUERY_INFORMATION, PROCESS_SYNCHRONIZE,
+            PROCESS_VM_READ, QueryFullProcessImageNameW, THREAD_QUERY_LIMITED_INFORMATION,
+            THREAD_SYNCHRONIZE, WaitForSingleObject,
         },
     },
 };
@@ -61,11 +63,62 @@ pub struct Process {
     pub born: u64,
     pid: u32,
 }
+pub fn resolve_local_syscall(number: u16) -> Value {
+    syscall::resolve_local(number)
+}
 
 fn thread_matches(handle: HANDLE, pid: u32, born: u64) -> bool {
     (unsafe {
         GetProcessIdOfThread(handle) == pid && WaitForSingleObject(handle, 0) == WAIT_TIMEOUT
     }) && times(handle, true).map(|v| v.0) == Some(born)
+}
+
+// Follow beyond the first thread in another process. Zero flags can still
+// report that first foreign thread, but do not follow its next dependency.
+pub struct WaitChainSession(*mut core::ffi::c_void);
+impl Drop for WaitChainSession {
+    fn drop(&mut self) {
+        unsafe { CloseThreadWaitChainSession(self.0) }
+    }
+}
+impl WaitChainSession {
+    pub fn open() -> Option<Self> {
+        let session = unsafe { OpenThreadWaitChainSession(0, None) };
+        (!session.is_null()).then(|| Self(session))
+    }
+    pub fn query(&self, tid: u32) -> Result<(Vec<WAITCHAIN_NODE_INFO>, bool), u32> {
+        self.query_with_flags(tid, WCT_OUT_OF_PROC_FLAG)
+    }
+    fn query_with_flags(
+        &self,
+        tid: u32,
+        flags: u32,
+    ) -> Result<(Vec<WAITCHAIN_NODE_INFO>, bool), u32> {
+        let mut count = WCT_MAX_NODE_COUNT;
+        let mut nodes = [WAITCHAIN_NODE_INFO::default(); WCT_MAX_NODE_COUNT as usize];
+        let mut cycle = 0;
+        let result = unsafe {
+            GetThreadWaitChain(
+                self.0,
+                0,
+                flags,
+                tid,
+                &mut count,
+                nodes.as_mut_ptr(),
+                &mut cycle,
+            )
+        };
+        if result == 0 {
+            return Err(unsafe { GetLastError() });
+        }
+        Ok((
+            nodes
+                .into_iter()
+                .take(count.min(WCT_MAX_NODE_COUNT) as usize)
+                .collect(),
+            cycle != 0,
+        ))
+    }
 }
 
 impl Process {
@@ -116,7 +169,11 @@ impl Process {
         if ok == 0 {
             return json!({"win_error":unsafe { GetLastError() }});
         }
-        json!({"private_bytes":m.PrivateUsage,"working_set":m.WorkingSetSize,"cpu_100ns":times(self.handle.as_raw_handle(), false).map(|t|t.1)})
+        let mut io = IO_COUNTERS::default();
+        let io_ok = unsafe { GetProcessIoCounters(self.handle.as_raw_handle(), &mut io) } != 0;
+        json!({"private_bytes":m.PrivateUsage,"working_set":m.WorkingSetSize,"cpu_100ns":times(self.handle.as_raw_handle(), false).map(|t|t.1),
+            "page_faults":m.PageFaultCount,"io_read_bytes":io_ok.then_some(io.ReadTransferCount),"io_write_bytes":io_ok.then_some(io.WriteTransferCount),
+            "io_read_ops":io_ok.then_some(io.ReadOperationCount),"io_write_ops":io_ok.then_some(io.WriteOperationCount)})
     }
 
     pub fn wait_snapshot(&self) -> Value {
@@ -175,9 +232,9 @@ impl Process {
             }
             ok = unsafe { Process32NextW(handle.0, &mut child_entry) };
         }
-        let session = unsafe { OpenThreadWaitChainSession(0, None) };
+        let session = WaitChainSession::open();
         let mut waits = Vec::new();
-        if !session.is_null() {
+        if let Some(ref session) = session {
             // Oldest thread is retained as a hypothesis, never labeled as the JS thread.
             // Names, addresses, object paths, and process command lines are deliberately omitted.
             for (born, tid, cpu, held) in threads.iter().take(1) {
@@ -185,40 +242,24 @@ impl Process {
                     waits.push(json!({"tid":tid,"error":"thread_changed"}));
                     continue;
                 }
-                let mut count = WCT_MAX_NODE_COUNT;
-                let mut nodes = [WAITCHAIN_NODE_INFO::default(); WCT_MAX_NODE_COUNT as usize];
-                let mut cycle = 0;
-                let result = unsafe {
-                    GetThreadWaitChain(
-                        session,
-                        0,
-                        0,
-                        *tid,
-                        &mut count,
-                        nodes.as_mut_ptr(),
-                        &mut cycle,
-                    )
-                };
+                let last_syscall =
+                    syscall::sample(self.handle.as_raw_handle(), self.pid, *tid, *born);
+                let result = session.query(*tid);
                 if !thread_matches(held.0, self.pid, *born) {
                     waits.push(json!({"tid":tid,"error":"thread_changed"}));
-                } else if result == 0 {
-                    waits.push(
-                        json!({"tid":tid,"cpu_100ns":cpu,"win_error":unsafe{GetLastError()}}),
-                    );
-                } else {
-                    let chain: Vec<_> = nodes.iter().take(count.min(WCT_MAX_NODE_COUNT) as usize).map(|n| {
+                } else if let Err(error) = result {
+                    waits.push(json!({"tid":tid,"cpu_100ns":cpu,"win_error":error}));
+                } else if let Ok((nodes, cycle)) = result {
+                    let chain: Vec<_> = nodes.iter().map(|n| {
                         if n.ObjectType == WctThreadType {
                             let t = unsafe { n.Anonymous.ThreadObject };
                             json!({"type":n.ObjectType,"status":n.ObjectStatus,"pid":t.ProcessId,"tid":t.ThreadId,"wait_ms":t.WaitTime,"switches":t.ContextSwitches})
                         } else { json!({"type":n.ObjectType,"status":n.ObjectStatus}) }
                     }).collect();
-                    waits.push(json!({"tid":tid,"cpu_100ns":cpu,"cycle":cycle!=0,"chain":chain}));
+                    waits.push(json!({"tid":tid,"cpu_100ns":cpu,"cycle":cycle,"chain":chain,"last_syscall":last_syscall}));
                 }
             }
-            unsafe {
-                CloseThreadWaitChainSession(session);
-            }
         }
-        json!({"at_ms":super::epoch_ms(),"thread_count":threads.len(),"oldest_tid":threads.first().map(|t|t.1),"waits":waits,"children":children,"wct_available":!session.is_null()})
+        json!({"at_ms":super::epoch_ms(),"thread_count":threads.len(),"oldest_tid":threads.first().map(|t|t.1),"waits":waits,"children":children,"wct_available":session.is_some()})
     }
 }
