@@ -3,6 +3,9 @@ title: 기여하기
 description: opencodex 개발 환경, 구조, 컨벤션, 프로바이더와 어댑터 추가 방법.
 ---
 
+For work in the mashfromband fork, use its [AGENTS.md](https://github.com/mashfromband/opencodex/blob/dev/AGENTS.md) and [MAINTAINERS.md](https://github.com/mashfromband/opencodex/blob/dev/MAINTAINERS.md). The fork's 2026-10-12 owner directive replaces general human approval and operational handoff; AI assignees complete independent review, exact-head checks, merge and existing-production reflection. Upstream roster, permissions and contribution requirements in this guide apply only upstream. Customer-specific human review contracts remain in force.
+
+
 ## 설정
 
 ```bash

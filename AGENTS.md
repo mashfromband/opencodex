@@ -1,3 +1,18 @@
+## この所有者の開発運用（2026-10-12）
+
+この規則は GitHub の実所有者が mashfromband の場合に適用する。オーナーの2026-10-12の直接指示（共有ToDo2458/2465）が、古い一般的な人手レビュー・マージ・日常操作・再承認の前提に優先する。他の所有者や顧客固有の契約には適用しない。
+
+人は要件を決め、本人だけが決められる質問に答える。AI担当は設計・実装・検査・失敗の修正・別モデルレビュー・Must解消・同じ最終HEADのCI確認・PRマージ・必要な既存Prdへの反映・後片付けまで行う。PRを作っただけ、委譲を受け付けただけでは完了にしない。日常操作や技術的な選択について、人のレビューや再承認を待たない。
+
+既存のDiscord回答は元ToDo・質問・本人ID・対象・範囲と照合し、同じ判断を再質問しない。未指定の製品要件、新費用、権利、顧客との新しい約束、公開、取り消せない操作など本人だけが決める点は、PCのSkill discord-owner-askに従って具体的な選択肢を1回送る。その項目だけ共有ToDoのblockにし、独立した作業を続ける。他ToDoの完了待ちはwait --onで記録する。
+
+プロジェクト固有の検査・受入条件・秘密保護・顧客固有の人によるレビュー要求・既存Prd限定の制約は維持する。新費用・新APIキーは使わない。Vercel/Railwayのオーナーアカウント内はソロ運用とし、他メンバーがいることだけで承認待ちにしない。他OrgのGitHub環境は変更しない。ドメイン管理はRakkoだけを使う。コマンドは窓を出さず担当が実行する。
+
+既存checkoutでは実remoteとGitHub ownerを再照合し、読み書き前にscrub391 --guard-pathで保護判定する。保護対象には触らず名前・パスを報告しない。専用branchで作業し、他担当の未コミットを巻き込まない。稼働中担当を止めず、元要件を保持した保存specまたは正式配送で次の区切りから反映させる。受付・読取・実反映を区別する。
+
+完了時は変更・確認済み・未確認・残作業を件数で記録し、PR URL、固定HEAD、検査、CI、別モデルレビュー、マージ、Prd反映の結果を元の共有ToDoへ残す。一時データと自作ChromeタブはPCの所有記録に従って片付ける。
+
+
 # AGENTS.md
 
 Guidance for AI agents (and humans) working on or reviewing this repository.
@@ -291,7 +306,7 @@ than nudged.
 ## Branch policy
 
 - `dev` — the single integration branch and the target for every pull request.
-- `main` — release branch. It only moves by maintainer-controlled promotion
+- `main` — release branch. It only moves by assignee-controlled, independently reviewed promotion
   from `dev` (releases, docs deploys). Do not open feature PRs against `main`.
 - `preview` — prerelease train (`x.y.z-preview.*` versions).
 
@@ -324,24 +339,21 @@ and asks the author to test and tick the boxes again against the latest code.
 Before a completion is accepted, the gate verifies the checklist claims it
 can check itself: the branch must be on the latest `dev` commit or at most
 10 commits behind it, and Codex/CodeRabbit findings must be resolved. The
-local-CI box is an author attestation only — fork contributors cannot start
-repository CI; a maintainer has to — so the gate never disproves it; a new
+local-CI box is an author attestation only — contributors without repository permission cannot start
+repository CI; the AI assignee with the required fork permission starts it — so the gate never disproves it; a new
 push still resets every box. A disproved claim unticks the matching box and
 keeps the PR a draft.
-Authors with repository push permission skip the ancestry heuristic only. As with approval requirements in
-[`MAINTAINERS.md`](./MAINTAINERS.md), the ancestry heuristic is a CI check
-rather than a branch rule. The branches themselves are protected: `dev`,
-`main`, and `preview` each require a pull request and block force-pushes and deletion.
-For `dev` only, a current maintainer with GitHub `maintain` or `admin` access may
-explicitly integrate through a PR without another maintainer approval, including
-their own PR, under the policy in `MAINTAINERS.md`. Record the decision and exact-head
-CI evidence; keep outstanding maintainer objections and security review separate.
-The bypass is PR-only, so a direct push to `dev` remains rejected regardless of
-`--no-verify`. Contributor review and `main`/`preview` rules remain unchanged.
+In this mashfromband fork, the AI assignee completes independent model review,
+resolves Must findings, verifies successful required CI for the exact final head,
+and integrates the PR under MAINTAINERS.md. Integration targets `dev`; authorized
+release/preview promotions retain their technical and security gates. Human
+maintainer approval and upstream rosters apply only upstream. Inspect this fork's
+actual GitHub rules and permissions rather than assuming upstream protection is
+inherited; do not weaken configured checks or bypass an execution rejection.
 
 [`MAINTAINERS.md`](./MAINTAINERS.md) is authoritative for review and merge
 policy (approvals, CI requirements, security review, promotion). This file
-summarizes; it never overrides it.
+summarizes; it never overrides it. In this mashfromband fork, the owner-authorized policy in MAINTAINERS.md replaces general human-maintainer approval requirements; inherited upstream roles do not grant or require approvals here.
 
 ## Review guidelines
 

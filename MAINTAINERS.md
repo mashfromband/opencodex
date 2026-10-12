@@ -1,9 +1,8 @@
 # Maintainers
 
-This document lists the people responsible for maintaining opencodex and defines the project's
-review and merge policy.
+This document defines the review and merge policy of the mashfromband fork. The 2026-10-12 owner directive below replaces general human-maintainer approval and operational handoff requirements in this fork. Upstream roster and historical governance entries below are attribution/reference only; they do not describe this fork's permissions or require an upstream person's approval.
 
-## Current maintainers
+## Upstream maintainers (reference only)
 
 | GitHub account | Project role | Responsibilities |
 | --- | --- | --- |
@@ -16,7 +15,7 @@ through GitHub repository settings.
 `dev` is the only integration line. The former `dev2-go` carry duty is retired;
 see [The retired `dev2-go` line](#the-retired-dev2-go-line).
 
-## Former maintainers
+## Former upstream maintainers (history)
 
 | GitHub account | Project role | Period |
 | --- | --- | --- |
@@ -47,24 +46,16 @@ when a maintainer steps down.
   Before a completion is accepted, the gate verifies the checklist claims
   it can check itself: the branch must be on the latest `dev` commit or at
   most 10 commits behind it, and Codex/CodeRabbit findings must be resolved.
-  The local-CI box is an author attestation only — fork contributors cannot
-  start repository CI; a maintainer has to — so the gate never disproves it;
+  The local-CI box is an author attestation only — contributors without repository permission cannot
+  start repository CI; the AI assignee with the required fork permission starts it — so the gate never disproves it;
   a new push still resets every box. A disproved claim unticks the matching
   box and keeps the PR a draft.
   Authors with repository push permission skip the ancestry heuristic only. As
   with the approval requirement above, this part is enforced by convention;
   the ruleset does not check ancestry (see the note under the change log).
-- Pull requests require successful required CI checks before merge. Contributor pull requests
-  normally require approval from at least one maintainer other than the author.
-- A current maintainer with GitHub `maintain` or `admin` access may explicitly integrate a pull
-  request into `dev` without another maintainer's approval, including their own pull request.
-  Record that choice and the exact-head verification in the pull-request description or comment.
-  This is maintainer integration, not a self-approval or an independent review. Outstanding
-  maintainer change requests must still be resolved or explicitly withdrawn. Technical review,
-  attribution, documentation and security-review duties remain in force.
-- The maintainer-integration exception applies only to `dev`. It does not change review rules
-  for `main` or `preview`, grant contributor authors approval authority, or permit direct pushes,
-  force-pushes or branch deletion. Authors do not submit approving reviews of their own work.
+- In this mashfromband fork, AI assignees own design, implementation, checks, fixes, independent model review, resolution of Must findings, successful required CI for the exact final head, merge, necessary existing-production reflection and cleanup. They do not wait for a human maintainer's review or merge.
+- Authors do not submit approving GitHub reviews of their own work. Independent model review is recorded with the fixed head and evidence; an author attestation alone is not independent review. Outstanding substantiated review findings must be resolved.
+- Integration still targets `dev`; release and preview promotion retain their technical, security and verification gates. The AI assignee performs authorized promotion instead of handing it to a human. New publication, costs, rights or unspecified product requirements remain owner-only decisions under AGENTS.md. Upstream promotion and maintainer requirements apply only upstream.
 - Authentication, credential handling, GitHub Actions, release automation, dependency installation,
   and other security-boundary changes require explicit security review.
 - A new or promoted provider preset is a credential-destination change. Before merge it needs the
@@ -76,12 +67,12 @@ when a maintainer steps down.
   with the service is disclosed, not disqualifying, and it does not lower the evidence bar. When the
   evidence is incomplete, prefer an inert `src/providers/free-directory.ts` reference row over a
   canonical registry entry.
-- Security-sensitive and release-related changes should be reviewed by both maintainers when
+- Security-sensitive and release-related changes should receive an additional independent security review when
   practical.
 - Integration uses pull requests, including urgent maintainer repairs. The PR-only ruleset
   bypass does not authorize direct pushes; incident changes to branch protection require a
   separate owner decision.
-- Promotion from `dev` to `main` and npm releases is maintainer-controlled.
+- Promotion from `dev` to `main` is performed by the AI assignee after required verification. npm publication requires existing owner authorization; this policy creates no new publication permission.
 - **Opening a release starts by moving `dev`'s version line forward.** Before cutting
   a release, `dev` must already outrank the version being released; `release.yml`
   asserts this and refuses to publish otherwise. Dispatch
@@ -128,7 +119,7 @@ defects. Bun-native TypeScript on `dev` is the single runtime line again.
   (Rust via N-API is the current candidate), not a second integration branch.
   Reopening a parallel runtime line is an owner decision.
 
-## Maintainer changes
+## Upstream maintainer changes (reference and history only)
 
 Adding or removing a maintainer requires:
 
@@ -208,3 +199,17 @@ Adding or removing a maintainer requires:
 
 Private vulnerability reports are handled by the current maintainers according to
 [`SECURITY.md`](./SECURITY.md). Do not disclose secrets or exploit details in a public issue.
+
+## この所有者の開発運用（2026-10-12）
+
+この規則は GitHub の実所有者が mashfromband の場合に適用する。オーナーの2026-10-12の直接指示（共有ToDo2458/2465）が、古い一般的な人手レビュー・マージ・日常操作・再承認の前提に優先する。他の所有者や顧客固有の契約には適用しない。
+
+人は要件を決め、本人だけが決められる質問に答える。AI担当は設計・実装・検査・失敗の修正・別モデルレビュー・Must解消・同じ最終HEADのCI確認・PRマージ・必要な既存Prdへの反映・後片付けまで行う。PRを作っただけ、委譲を受け付けただけでは完了にしない。日常操作や技術的な選択について、人のレビューや再承認を待たない。
+
+既存のDiscord回答は元ToDo・質問・本人ID・対象・範囲と照合し、同じ判断を再質問しない。未指定の製品要件、新費用、権利、顧客との新しい約束、公開、取り消せない操作など本人だけが決める点は、PCのSkill discord-owner-askに従って具体的な選択肢を1回送る。その項目だけ共有ToDoのblockにし、独立した作業を続ける。他ToDoの完了待ちはwait --onで記録する。
+
+プロジェクト固有の検査・受入条件・秘密保護・顧客固有の人によるレビュー要求・既存Prd限定の制約は維持する。新費用・新APIキーは使わない。Vercel/Railwayのオーナーアカウント内はソロ運用とし、他メンバーがいることだけで承認待ちにしない。他OrgのGitHub環境は変更しない。ドメイン管理はRakkoだけを使う。コマンドは窓を出さず担当が実行する。
+
+既存checkoutでは実remoteとGitHub ownerを再照合し、読み書き前にscrub391 --guard-pathで保護判定する。保護対象には触らず名前・パスを報告しない。専用branchで作業し、他担当の未コミットを巻き込まない。稼働中担当を止めず、元要件を保持した保存specまたは正式配送で次の区切りから反映させる。受付・読取・実反映を区別する。
+
+完了時は変更・確認済み・未確認・残作業を件数で記録し、PR URL、固定HEAD、検査、CI、別モデルレビュー、マージ、Prd反映の結果を元の共有ToDoへ残す。一時データと自作ChromeタブはPCの所有記録に従って片付ける。
