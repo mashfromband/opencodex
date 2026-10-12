@@ -339,20 +339,17 @@ and asks the author to test and tick the boxes again against the latest code.
 Before a completion is accepted, the gate verifies the checklist claims it
 can check itself: the branch must be on the latest `dev` commit or at most
 10 commits behind it, and Codex/CodeRabbit findings must be resolved. The
-local-CI box is an author attestation only — fork contributors cannot start
-repository CI; a maintainer has to — so the gate never disproves it; a new
+local-CI box is an author attestation only — contributors without repository permission cannot start
+repository CI; the AI assignee with the required fork permission starts it — so the gate never disproves it; a new
 push still resets every box. A disproved claim unticks the matching box and
 keeps the PR a draft.
-Authors with repository push permission skip the ancestry heuristic only. As with approval requirements in
-[`MAINTAINERS.md`](./MAINTAINERS.md), the ancestry heuristic is a CI check
-rather than a branch rule. The branches themselves are protected: `dev`,
-`main`, and `preview` each require a pull request and block force-pushes and deletion.
-For `dev` only, a current maintainer with GitHub `maintain` or `admin` access may
-explicitly integrate through a PR without another maintainer approval, including
-their own PR, under the policy in `MAINTAINERS.md`. Record the decision and exact-head
-CI evidence; keep outstanding maintainer objections and security review separate.
-The bypass is PR-only, so a direct push to `dev` remains rejected regardless of
-`--no-verify`. Contributor review and `main`/`preview` rules remain unchanged.
+In this mashfromband fork, the AI assignee completes independent model review,
+resolves Must findings, verifies successful required CI for the exact final head,
+and integrates the PR under MAINTAINERS.md. Integration targets `dev`; authorized
+release/preview promotions retain their technical and security gates. Human
+maintainer approval and upstream rosters apply only upstream. Inspect this fork's
+actual GitHub rules and permissions rather than assuming upstream protection is
+inherited; do not weaken configured checks or bypass an execution rejection.
 
 [`MAINTAINERS.md`](./MAINTAINERS.md) is authoritative for review and merge
 policy (approvals, CI requirements, security review, promotion). This file

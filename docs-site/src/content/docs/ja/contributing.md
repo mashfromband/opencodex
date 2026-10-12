@@ -3,7 +3,7 @@ title: コントリビュート
 description: opencodex の開発環境、構成、規約、プロバイダーとアダプターの追加方法。
 ---
 
-For work in the mashfromband fork, use its [AGENTS.md](https://github.com/mashfromband/opencodex/blob/dev/AGENTS.md) and [MAINTAINERS.md](https://github.com/mashfromband/opencodex/blob/dev/MAINTAINERS.md). The fork's 2026-10-12 owner directive replaces general human approval and operational handoff; AI assignees complete independent review, exact-head checks, merge and existing-production reflection. Upstream roster, permissions and contribution requirements in this guide apply only upstream. Customer-specific human review contracts remain in force.
+この mashfromband フォークの開発では、[AGENTS.md](https://github.com/mashfromband/opencodex/blob/dev/AGENTS.md) と [MAINTAINERS.md](https://github.com/mashfromband/opencodex/blob/dev/MAINTAINERS.md) に従います。2026-10-12のオーナー指示により、AI担当が別モデルレビュー・同じ最終HEADの検査・マージ・必要な既存Prd反映まで行います。このガイドの上流担当者・権限・人による一般的な承認要件は上流だけに適用します。顧客固有の人によるレビュー契約は維持します。
 
 
 ## セットアップ
