@@ -46,8 +46,8 @@ when a maintainer steps down.
   Before a completion is accepted, the gate verifies the checklist claims
   it can check itself: the branch must be on the latest `dev` commit or at
   most 10 commits behind it, and Codex/CodeRabbit findings must be resolved.
-  The local-CI box is an author attestation only — fork contributors cannot
-  start repository CI; a maintainer has to — so the gate never disproves it;
+  The local-CI box is an author attestation only — contributors without repository permission cannot
+  start repository CI; the AI assignee with the required fork permission starts it — so the gate never disproves it;
   a new push still resets every box. A disproved claim unticks the matching
   box and keeps the PR a draft.
   Authors with repository push permission skip the ancestry heuristic only. As
