@@ -3,6 +3,9 @@ title: Contributing
 description: Develop opencodex — setup, layout, conventions, and how to add a provider or adapter.
 ---
 
+For work in the mashfromband fork, use its [AGENTS.md](https://github.com/mashfromband/opencodex/blob/dev/AGENTS.md) and [MAINTAINERS.md](https://github.com/mashfromband/opencodex/blob/dev/MAINTAINERS.md). The fork's 2026-10-12 owner directive replaces general human approval and operational handoff; AI assignees complete independent review, exact-head checks, merge and existing-production reflection. Upstream roster, permissions and contribution requirements in this guide apply only upstream. Customer-specific human review contracts remain in force.
+
+
 ## Setup
 
 Source development requires the `bun` CLI on your `PATH`. The published npm package bundles its own
@@ -147,11 +150,7 @@ The current maintainers, their responsibilities, and the review and merge policy
 [`MAINTAINERS.md`](https://github.com/lidge-jun/opencodex/blob/main/MAINTAINERS.md). GitHub review
 ownership for the repository and security-sensitive paths is declared in `.github/CODEOWNERS`.
 
-Contributor pull requests normally need a maintainer's approval. A current maintainer with
-GitHub `maintain` or `admin` access may explicitly integrate a PR into `dev`, including their
-own, without a second maintainer approval. The decision and exact-head verification must be
-recorded; CI, security review and outstanding maintainer objections still apply. This exception
-does not change `main`/`preview` review rules or allow direct pushes, force-pushes or deletion.
+In this fork, AI assignees integrate after independent model review, Must resolution and successful exact-head CI; no human-maintainer approval is required. The upstream integration exception, roster and GitHub permissions described in the hosted guide apply only upstream.
 
 ## Conventions
 

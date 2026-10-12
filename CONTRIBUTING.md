@@ -2,6 +2,8 @@
 
 Thanks for helping with opencodex.
 
+For this mashfromband fork, [AGENTS.md](AGENTS.md) and [MAINTAINERS.md](MAINTAINERS.md) apply the owner's 2026-10-12 directive: the AI assignee completes independent model review, fixes, exact-head checks and merge. The hosted guides describe upstream contribution; upstream maintainers do not supply or require approval for this fork. Customer-specific human review contracts remain in force.
+
 - Start with the canonical guide: [Contributing](https://opencodex.me/contributing/)
 - Pull-request quality contract: [Review readiness and author responsibility](https://opencodex.me/contributing/pr-quality/)
 - Public user docs live in [`docs-site/`](./docs-site)
@@ -13,7 +15,7 @@ Thanks for helping with opencodex.
 ## Branches
 
 - `dev` — the only integration target for pull requests.
-- `main` — releases only; moves by maintainer-controlled promotion from `dev`.
+- `main` — releases only; moves by independently reviewed AI-assignee promotion from `dev`.
 - `preview` — prerelease train.
 
 The `dev2-go` Go native-port line has been retired. Its history is archived at
@@ -49,8 +51,7 @@ A ready-for-review PR is the author's claim that the change is complete, underst
   checks this mechanically, and its failures are deterministic — read the message
   and you know what to change.
 - Authentication, workflow, release automation, and dependency-installation
-  surfaces need a maintainer to sponsor the change (`maintainer-sponsored`)
-  before merge. Those are the places where a bad merge is expensive and hard to
+  surfaces require independent security review before merge in this fork. The upstream `maintainer-sponsored` convention remains an upstream requirement. Those are the places where a bad merge is expensive and hard to
   unwind, which is why they are the only pre-approved surfaces here.
 - A PR that stalls with unresolved review feedback may be closed, with the reason
   stated. A closed PR can be reopened once the stated reason is resolved, or
