@@ -313,7 +313,7 @@ describe("subagent fallback without primary auth cooldown failure", () => {
     globalThis.fetch = (async (_input, init) => {
       const body = JSON.parse(String(init?.body));
       models.push(body.model);
-      if (models.length === 1) return Response.json({
+      if (body.model === "gpt-5.5") return Response.json({
         error: { type: "server_error", message: "Selected model is at capacity. Please try a different model" },
       }, { status: 503 });
       return Response.json({ id: "resp_capacity_recovery", object: "response", status: "completed", model: body.model, output: [] });
@@ -327,7 +327,7 @@ describe("subagent fallback without primary auth cooldown failure", () => {
     const recovered = await postSpawn(cfg, body);
     expect(recovered.status).toBe(200);
     await recovered.text();
-    expect(models).toEqual(["gpt-5.5", "gpt-5.4"]);
+    expect(models).toEqual(["gpt-5.5", "gpt-5.5", "gpt-5.5", "gpt-5.4"]);
     Date.now = () => now + DEFAULT_SUBAGENT_MODEL_FALLBACK_POLL_MS;
     expect(isModelHealthBlocked("gpt-5.5", cfg, "pool-a")).toBe(false);
   });
@@ -2110,6 +2110,7 @@ describe("encrypted child native-only fallback", () => {
 });
 
 describe("native passthrough terminal finalization", () => {
+  let streamCredentialSequence = 0;
   function failedSse(message: string, type = "rate_limit_error"): string {
     return `event: response.failed\ndata: ${JSON.stringify({
       type: "response.failed",
@@ -2130,7 +2131,15 @@ describe("native passthrough terminal finalization", () => {
   }> {
     const now = 1_800_000_000_000;
     Date.now = () => now;
-    installPoolCredential("pool-a", "pool_acc", now);
+    // A semantic 401 retires this synthetic credential. Each test owns a fresh
+    // refresh-grant identity so rejection evidence cannot poison another test.
+    const credentialId = ++streamCredentialSequence;
+    saveCodexAccountCredential("pool-a", {
+      accessToken: `pool-a-stream-${credentialId}-access`,
+      refreshToken: `pool-a-stream-${credentialId}-refresh`,
+      expiresAt: now + 24 * 60 * 60_000,
+      chatgptAccountId: "pool_acc",
+    });
     const cfg = poolNativePlusRoutedConfig({
       streamMode,
       activeCodexAccountId: "pool-a",
@@ -2152,6 +2161,7 @@ describe("native passthrough terminal finalization", () => {
           onNativePassthroughTerminal: (status) => terminals.push(status),
         },
       );
+      expect(response.status).toBe(200);
       const responseText = await response.text();
       // Allow inspection consumer microtasks to settle.
       await Bun.sleep(20);
