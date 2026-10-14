@@ -163,7 +163,7 @@ jobs:
           # No job here pushes, and the self-hosted box keeps its checkout
           # between jobs, so leaving a usable token in .git/config is avoidable
           # residue. Matches the convention already used by the other workflows.
-          persist-credentials: [REDACTED]
+          persist-credentials: false
 
       - name: Detect changed areas
         id: filter
@@ -280,7 +280,7 @@ jobs:
           # No job here pushes, and the self-hosted box keeps its checkout
           # between jobs, so leaving a usable token in .git/config is avoidable
           # residue. Matches the convention already used by the other workflows.
-          persist-credentials: [REDACTED]
+          persist-credentials: false
           # tests/ci-workflows/release-version-line.test.ts compares package.json against the
           # newest release tag. actions/checkout fetches no tags by default, so
           # without this the check reads an empty tag set and passes on anything -
@@ -336,7 +336,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          persist-credentials: [REDACTED]
+          persist-credentials: false
 
       - name: Setup project Bun
         uses: ./.github/actions/setup-project-bun
@@ -375,7 +375,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          persist-credentials: [REDACTED]
+          persist-credentials: false
 
       - name: Setup project Bun
         uses: ./.github/actions/setup-project-bun
@@ -410,7 +410,7 @@ jobs:
           # No job here pushes, and the self-hosted box keeps its checkout
           # between jobs, so leaving a usable token in .git/config is avoidable
           # residue. Matches the convention already used by the other workflows.
-          persist-credentials: [REDACTED]
+          persist-credentials: false
 
       - name: Setup project Bun
         uses: ./.github/actions/setup-project-bun
@@ -503,7 +503,7 @@ jobs:
           # No job here pushes, and the self-hosted box keeps its checkout
           # between jobs, so leaving a usable token in .git/config is avoidable
           # residue. Matches the convention already used by the other workflows.
-          persist-credentials: [REDACTED]
+          persist-credentials: false
           # tests/ci-workflows/release-version-line.test.ts compares package.json against the
           # newest release tag. actions/checkout fetches no tags by default, so
           # without this the check reads an empty tag set and passes on anything -
@@ -653,7 +653,7 @@ jobs:
           # No job here pushes, and the self-hosted box keeps its checkout
           # between jobs, so leaving a usable token in .git/config is avoidable
           # residue. Matches the convention already used by the other workflows.
-          persist-credentials: [REDACTED]
+          persist-credentials: false
           # tests/ci-workflows/release-version-line.test.ts compares package.json against the
           # newest release tag. actions/checkout fetches no tags by default, so
           # without this the check reads an empty tag set and passes on anything -
@@ -807,7 +807,7 @@ jobs:
           # No job here pushes, and the self-hosted box keeps its checkout
           # between jobs, so leaving a usable token in .git/config is avoidable
           # residue. Matches the convention already used by the other workflows.
-          persist-credentials: [REDACTED]
+          persist-credentials: false
           # Same reason as the Linux shards and the macOS control: this leg runs the
           # whole suite, and tests/ci-workflows/release-version-line.test.ts reads release tags.
           # Without tags the check sees an empty set and cannot fail.
@@ -885,7 +885,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          persist-credentials: [REDACTED]
+          persist-credentials: false
 
       - name: Setup project Bun
         uses: ./.github/actions/setup-project-bun
@@ -938,7 +938,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          persist-credentials: [REDACTED]
+          persist-credentials: false
 
       - name: Setup project Bun
         uses: ./.github/actions/setup-project-bun
@@ -973,7 +973,7 @@ jobs:
           # No job here pushes, and the self-hosted box keeps its checkout
           # between jobs, so leaving a usable token in .git/config is avoidable
           # residue. Matches the convention already used by the other workflows.
-          persist-credentials: [REDACTED]
+          persist-credentials: false
 
       # Deliberately NO setup-bun: prove `npm install -g` works without a
       # separately-installed Bun. The launcher uses the bundled `bun` dependency.
