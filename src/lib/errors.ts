@@ -63,6 +63,11 @@ export function isCyberPolicyMessage(text: string): boolean {
   return false;
 }
 
+/** Explicit model-capacity verdict; unrelated storage/capacity messages stay unchanged. */
+function isModelCapacityMessage(text: string): boolean {
+  return /\bselected model is at capacity\b/i.test(text);
+}
+
 function isSubscriptionGateMessage(text: string): boolean {
   return (
     text.includes("requires a subscription") ||
@@ -299,6 +304,7 @@ export function classifyError(status: number, type: string, message: string): Oc
   }
   if (
     status === 503 ||
+    isModelCapacityMessage(text) ||
     text.includes("overloaded") ||
     text.includes("server is busy") ||
     text.includes("temporarily unavailable")
@@ -407,6 +413,7 @@ export function inferHttpStatusFromAdapterMessage(message: string): number {
   // the "malformed upstream" phrase our adapters emit; plain "malformed" keeps its 400 verdict.
   if (lower.includes("malformed upstream")) return 502;
   if (
+    isModelCapacityMessage(lower) ||
     lower.includes("unavailable") ||
     lower.includes("overloaded") ||
     lower.includes("temporarily") ||

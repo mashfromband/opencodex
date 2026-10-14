@@ -8,7 +8,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { hasOwnProvider } from "../config";
-import { isRateLimitOrQuotaFailureMessage } from "../lib/errors";
+import { classifyError, isRateLimitOrQuotaFailureMessage } from "../lib/errors";
 import type { OcxParsedRequest, OcxConfig } from "../types";
 import { slugsEquivalent } from "../providers/slug-codec";
 import { CODEX_HOME, getCodexHome } from "./paths";
@@ -411,7 +411,10 @@ export function noteSubagentModelFailure(
   ttlMs?: number,
 ): void {
   const interval = ttlMs ?? DEFAULT_SUBAGENT_MODEL_FALLBACK_POLL_MS;
-  if (!isRateLimitOrQuotaFailureMessage(message)) return;
+  // Capacity is transient model health, not evidence that an account spent its quota.
+  // Reuse classification so auth, permission, policy, and cancellation retain precedence.
+  const overloaded = classifyError(0, "", message).code === "server_is_overloaded";
+  if (!overloaded && !isRateLimitOrQuotaFailureMessage(message)) return;
   const route = tryRouteFallbackModel(config, model);
   const poolScoped = !!route && isPoolCodexRoute(route);
   modelHealth.set(
@@ -422,7 +425,7 @@ export function noteSubagentModelFailure(
     ),
     {
       unavailableUntil: now + interval,
-      reason: "quota_exhausted",
+      reason: overloaded ? "model_overloaded" : "quota_exhausted",
     },
   );
   sweepExpiredOnWrite(now);

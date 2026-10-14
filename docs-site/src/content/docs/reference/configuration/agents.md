@@ -137,6 +137,14 @@ an encrypted `NEW_TASK` is recovered once before routed combo dispatch.
 }
 ```
 
+A reported overload, including "Selected model is at capacity. Please try a different model",
+temporarily marks that model unhealthy for subsequent child turns (60 seconds by default).
+The next child request can select another eligible configured fallback; the failed turn is
+not automatically replayed. This health signal does not mark account quota exhausted or
+add fallback models. Native Pool health stays account-scoped, while routed model health
+applies across Pool-account changes. Authentication, permission, cancellation, and policy
+refusals retain their existing handling.
+
 ## Encrypted v2 task recovery
 
 `agentTaskRecovery` is an experimental compatibility path for a native ChatGPT parent spawning a

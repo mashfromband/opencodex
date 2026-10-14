@@ -15,6 +15,29 @@ describe("adapterFailureFromMessage", () => {
     });
   });
 
+  test("maps selected-model capacity to a retryable overload without marking quota exhausted", () => {
+    const message = "Selected model is at capacity. Please try a different model.";
+    expect(adapterFailureFromMessage(message)).toEqual({
+      httpStatus: 503,
+      error: { message, type: "server_error", code: "server_is_overloaded" },
+    });
+    expect(classifyError(400, "upstream_error", message).code).toBe("server_is_overloaded");
+    expect(adapterFailureFromMessage(message.toUpperCase()).httpStatus).toBe(503);
+    expect(adapterFailureFromMessage("Storage capacity exceeded").error.code).toBe("upstream_server_error");
+  });
+
+  test("capacity wording does not override auth, permission, cancellation, or policy failures", () => {
+    const capacity = "Selected model is at capacity.";
+    for (const [message, status, code] of [
+      [`Invalid token; ${capacity}`, 401, "invalid_api_key"],
+      [`Permission denied; ${capacity}`, 403, "permission_denied"],
+      [`Client cancelled request; ${capacity}`, 499, "client_closed_request"],
+      [`Request blocked for high-risk cybersecurity activity; ${capacity}`, 400, "cyber_policy"],
+    ] as const) {
+      expect(adapterFailureFromMessage(message)).toMatchObject({ httpStatus: status, error: { code } });
+    }
+  });
+
   test("parses retry-after hints from upstream text", () => {
     const message = "rate limit exceeded: try again in 12.5 seconds";
     expect(parseRetryAfterFromMessage(message)).toBe(13);
