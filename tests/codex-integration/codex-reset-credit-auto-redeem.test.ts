@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync} from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   createResetCreditAutoRedeemer,
+  hashAccountKey,
   planAutoRedeem,
   resolveResetCreditAutoRedeemSettings,
   type ResetCredit,
@@ -22,6 +23,7 @@ function harness(opts: { credits: () => ResetCredit[]; enabled?: () => boolean; 
   let now = T0;
   let pending: { fn: () => void; at: number } | null = null;
   const consumed: string[] = [];
+  const journalAtDispatch: Array<{ redeemRequestId: string; state: string }> = [];
   const logs: string[] = [];
   let inspects = 0;
   const redeemer = createResetCreditAutoRedeemer({
@@ -29,6 +31,8 @@ function harness(opts: { credits: () => ResetCredit[]; enabled?: () => boolean; 
     settings: () => ({ enabled: opts.enabled ? opts.enabled() : true, leadTimeMinutes: opts.lead ?? 10 }),
     inspect: async () => { inspects += 1; return { credits: opts.credits() }; },
     consume: async id => {
+      const snapshot = JSON.parse(readFileSync(opts.journalFile, "utf8"));
+      journalAtDispatch.push(snapshot.entries.find((entry: { redeemRequestId: string }) => entry.redeemRequestId === id));
       if (opts.consumeThrows) throw new Error("socket hangup");
       consumed.push(id);
       return { code: opts.consumeCode ?? "reset" };
@@ -40,10 +44,10 @@ function harness(opts: { credits: () => ResetCredit[]; enabled?: () => boolean; 
     log: line => logs.push(line),
   });
   return {
-    redeemer, consumed, logs,
+    redeemer, consumed, logs, journalAtDispatch,
     inspects: () => inspects,
     pendingAt: () => pending?.at ?? null,
-    advanceAndFire: async () => { if (!pending) throw new Error("no timer"); now = pending.at; const fn = pending.fn; pending = null; fn(); await new Promise(r => setTimeout(r, 5)); },
+    advanceAndFire: async () => { if (!pending) throw new Error("no timer"); now = pending.at; const fn = pending.fn; pending = null; fn(); await redeemer.tick(); },
     setNow: (t: number) => { now = t; },
   };
 }
@@ -84,6 +88,8 @@ describe("reset-credit auto-redeemer runtime (#822)", () => {
     expect(h.pendingAt()).toBe(T0 + 20 * MIN);
     await h.advanceAndFire();
     expect(h.consumed).toHaveLength(1);
+    expect(h.journalAtDispatch).toHaveLength(1);
+    expect(h.journalAtDispatch[0]).toMatchObject({ redeemRequestId: h.consumed[0], state: "dispatched" });
     // initial + intermediate re-check + (plan + pre-dispatch re-read) on the due tick
     expect(h.inspects()).toBe(4);
     const journal = JSON.parse(readFileSync(journalFile, "utf8")) as { entries: Array<{ redeemRequestId: string; state: string }> };
@@ -148,6 +154,31 @@ describe("reset-credit auto-redeemer runtime (#822)", () => {
     h.setNow(T0 + 20 * MIN);
     expect(await h.redeemer.tick()).toEqual({ kind: "skipped", reason: "credit-gone" });
     expect(h.consumed).toHaveLength(0);
+  });
+
+
+  test("journal retention uses the injected clock and preserves uncertain requests", async () => {
+    const journalFile = join(dir, "j.json");
+    const week = 7 * 24 * 60 * MIN;
+    const entry = (id: string, state: "dispatched" | "settled", updatedAt: number) => ({
+      accountKey: hashAccountKey("acct-main"), grantedAt: id, expiresAt: id,
+      redeemRequestId: id, state, updatedAt,
+    });
+    writeFileSync(journalFile, JSON.stringify({ version: 1, entries: [
+      entry("old-settled", "settled", T0 - week),
+      entry("recent-settled", "settled", T0 - MIN),
+      entry("old-uncertain", "dispatched", T0 - 2 * week),
+    ] }));
+    const h = harness({ credits: () => [credit(30)], journalFile });
+    h.setNow(T0 + 20 * MIN);
+    expect((await h.redeemer.tick()).kind).toBe("dispatched");
+    const entries = JSON.parse(readFileSync(journalFile, "utf8")).entries;
+    expect(entries.map((e: { redeemRequestId: string }) => e.redeemRequestId)).toEqual([
+      "recent-settled", "old-uncertain", h.consumed[0],
+    ]);
+    expect(entries[2].updatedAt).toBe(T0 + 20 * MIN);
+    expect(await h.redeemer.tick()).toEqual({ kind: "skipped", reason: "credit-gone" });
+    expect(h.consumed).toHaveLength(1);
   });
 
   test("stop clears the timer", async () => {

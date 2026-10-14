@@ -427,6 +427,15 @@ jobs:
           cd gui
           bun run lint
 
+      - name: Focused model-capacity and reset-credit regressions
+        run: |
+          bun test --isolate --timeout 60000 tests/codex-integration/codex-reset-credit-auto-redeem.test.ts tests/server/errors-adapter-failure.test.ts tests/server/error-fidelity.test.ts tests/routing/subagent-model-fallback.test.ts tests/routing/router-combo-failover-classification.test.ts tests/routing/subagent-fallback-handle-responses.test.ts
+
+      - name: Documentation build
+        working-directory: docs-site
+        run: |
+          bun install --frozen-lockfile
+          bun run build
       - name: Typecheck
         run: |
           bun x tsc --noEmit

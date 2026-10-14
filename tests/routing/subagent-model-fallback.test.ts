@@ -1031,6 +1031,60 @@ test("the native-main drain sentinel covers the flagships without widening to gp
     });
   });
 
+  test("capacity failure skips the pool model until expiry without exhausting account quota", () => {
+    const now = Date.now();
+    const config = cfg();
+    updateAccountQuota("pool-a", 10, undefined, 20);
+    const message = "Selected model is at capacity. Please try a different model.";
+    noteSubagentModelFailure("gpt-5.6-sol", message, config, "pool-a", now);
+
+    expect(selectAvailableSubagentModel("gpt-5.6-sol", config, [], "pool-a", now)).toEqual({
+      model: "alibaba-token-plan/qwen3.8-max",
+      rewritten: true,
+      skipped: ["gpt-5.6-sol"],
+    });
+    expect(isNativeModelQuotaExhausted("gpt-5.6-sol", config, "pool-a", now)).toBe(false);
+    expect(isSubagentModelUnavailable("gpt-5.6-sol", config, "account-b", now)).toBe(false);
+    expect(isSubagentModelUnavailable("gpt-5.6-sol", config, "pool-a", now + 59_999)).toBe(true);
+    expect(selectAvailableSubagentModel("gpt-5.6-sol", config, [], "pool-a", now + 60_000).model)
+      .toBe("gpt-5.6-sol");
+  });
+
+  test("routed capacity blocks only the failing model across pool-account changes", () => {
+    const now = Date.now();
+    const config = cfg();
+    const primary = "alibaba-token-plan/qwen3.8-max";
+    noteSubagentModelFailure(primary, "Selected model is at capacity.", config, "account-a", now);
+    expect(isSubagentModelUnavailable(primary, config, "account-b", now)).toBe(true);
+    expect(isSubagentModelUnavailable("kimi/k3", config, "account-b", now)).toBe(false);
+    expect(isSubagentModelUnavailable(primary, config, "account-b", now + 60_000)).toBe(false);
+  });
+
+  test("overload cooldown honors an explicit TTL", () => {
+    const now = Date.now();
+    const config = cfg();
+    const model = "kimi/k3";
+    noteSubagentModelFailure(model, "The model is overloaded", config, "pool-a", now, 5_000);
+    expect(isSubagentModelUnavailable(model, config, "pool-a", now + 4_999)).toBe(true);
+    expect(isSubagentModelUnavailable(model, config, "pool-a", now + 5_000)).toBe(false);
+  });
+
+  test("capacity wording beside a terminal refusal does not add a model health block", () => {
+    const now = Date.now();
+    const config = cfg();
+    for (const message of [
+      "Invalid token; Selected model is at capacity.",
+      "Permission denied; Selected model is at capacity.",
+      "Client cancelled request; Selected model is at capacity.",
+      "Request blocked for high-risk cybersecurity activity; Selected model is at capacity.",
+      "Storage capacity exceeded",
+    ]) {
+      resetSubagentModelFallbackStateForTests();
+      noteSubagentModelFailure("kimi/k3", message, config, "pool-a", now);
+      expect(isSubagentModelUnavailable("kimi/k3", config, "pool-a", now)).toBe(false);
+    }
+  });
+
   test("noteSubagentModelFailure records failures under the configured fallback slug", () => {
     resetSubagentModelFallbackStateForTests();
     noteSubagentModelFailure("alibaba-token-plan/qwen3.8-max", "429", cfg(), "pool-a");

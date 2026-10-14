@@ -302,6 +302,36 @@ function entitlementSnapshot(grants: Readonly<Record<string, readonly string[]>>
 }
 
 describe("subagent fallback without primary auth cooldown failure", () => {
+  test("HTTP capacity rejection blocks the model and the next spawn uses another native model", async () => {
+    const now = 1_800_000_000_000;
+    Date.now = () => now;
+    installPoolCredential("pool-a", "pool_acc", now);
+    updateAccountQuota("pool-a", 20, undefined, 20);
+    setSubagentQuotaPrimeForTests(async () => {});
+    const cfg = poolNativePlusRoutedConfig({ subagentModelFallback: ["gpt-5.4"] });
+    const models: string[] = [];
+    globalThis.fetch = (async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+      models.push(body.model);
+      if (body.model === "gpt-5.5") return Response.json({
+        error: { type: "server_error", message: "Selected model is at capacity. Please try a different model" },
+      }, { status: 503 });
+      return Response.json({ id: "resp_capacity_recovery", object: "response", status: "completed", model: body.model, output: [] });
+    }) as typeof fetch;
+    const body = { model: "gpt-5.5", input: readableAgentInput(), stream: false };
+    const rejected = await postSpawn(cfg, body);
+    expect(rejected.status).toBe(503);
+    await rejected.text();
+    expect(isModelHealthBlocked("gpt-5.5", cfg, "pool-a")).toBe(true);
+    expect(isModelHealthBlocked("gpt-5.5", cfg, "pool-b")).toBe(false);
+    const recovered = await postSpawn(cfg, body);
+    expect(recovered.status).toBe(200);
+    await recovered.text();
+    expect(models).toEqual(["gpt-5.5", "gpt-5.5", "gpt-5.5", "gpt-5.4"]);
+    Date.now = () => now + DEFAULT_SUBAGENT_MODEL_FALLBACK_POLL_MS;
+    expect(isModelHealthBlocked("gpt-5.5", cfg, "pool-a")).toBe(false);
+  });
+
   test("exact account child bypasses quota priming and fallback on an empty 503", async () => {
     const now = 1_800_000_000_000;
     Date.now = () => now;
@@ -2080,6 +2110,7 @@ describe("encrypted child native-only fallback", () => {
 });
 
 describe("native passthrough terminal finalization", () => {
+  let streamCredentialSequence = 0;
   function failedSse(message: string, type = "rate_limit_error"): string {
     return `event: response.failed\ndata: ${JSON.stringify({
       type: "response.failed",
@@ -2100,13 +2131,23 @@ describe("native passthrough terminal finalization", () => {
   }> {
     const now = 1_800_000_000_000;
     Date.now = () => now;
-    installPoolCredential("pool-a", "pool_acc", now);
+    // A semantic 401 retires this synthetic credential. Each test owns a fresh account and
+    // refresh-grant identity so rejection evidence cannot poison another test.
+    const credentialId = ++streamCredentialSequence;
+    const streamAccountId = `pool-stream-${credentialId}`;
+    saveCodexAccountCredential(streamAccountId, {
+      accessToken: `pool-a-stream-${credentialId}-access`,
+      refreshToken: `pool-a-stream-${credentialId}-refresh`,
+      expiresAt: now + 24 * 60 * 60_000,
+      chatgptAccountId: "pool_acc",
+    });
     const cfg = poolNativePlusRoutedConfig({
       streamMode,
-      activeCodexAccountId: "pool-a",
+      activeCodexAccountId: streamAccountId,
+      codexAccounts: [{ id: streamAccountId, email: "stream@example.test", isMain: false, chatgptAccountId: "pool_acc" }],
       subagentModelFallback: ["xai/grok-4.5"],
     });
-    updateAccountQuota("pool-a", 20, undefined, 20);
+    updateAccountQuota(streamAccountId, 20, undefined, 20);
 
     const terminals: ResponsesTerminalStatus[] = [];
     mockSseUpstream(sseBody);
@@ -2122,12 +2163,13 @@ describe("native passthrough terminal finalization", () => {
           onNativePassthroughTerminal: (status) => terminals.push(status),
         },
       );
+      expect(response.status).toBe(200);
       const responseText = await response.text();
       // Allow inspection consumer microtasks to settle.
       await Bun.sleep(20);
       return {
         terminals,
-        healthBlocked: isModelHealthBlocked("gpt-5.5", cfg, "pool-a"),
+        healthBlocked: isModelHealthBlocked("gpt-5.5", cfg, streamAccountId),
         responseText,
       };
     } finally {
@@ -2136,6 +2178,22 @@ describe("native passthrough terminal finalization", () => {
   }
 
   for (const streamMode of ["legacy-tee", "eager-relay"] as const) {
+    test(`${streamMode}: capacity terminal records model health without replaying the stream`, async () => {
+      const result = await runStreamingSpawn(streamMode, failedSse(
+        "Selected model is at capacity. Please try a different model", "server_error",
+      ));
+      expect(result.terminals).toEqual(["failed"]);
+      expect(result.healthBlocked).toBe(true);
+      expect(result.responseText).toContain("Selected model is at capacity");
+    });
+
+    test(`${streamMode}: authentication terminal mentioning capacity stays terminal`, async () => {
+      const result = await runStreamingSpawn(streamMode, failedSse(
+        "Selected model is at capacity. Please try a different model", "authentication_error",
+      ));
+      expect(result.terminals).toEqual(["failed"]);
+      expect(result.healthBlocked).toBe(false);
+    });
     test(`${streamMode}: 429 failed records health and invokes terminal callback`, async () => {
       const result = await runStreamingSpawn(streamMode, failedSse("rate limited", "rate_limit_error"));
       expect(result.terminals).toEqual(["failed"]);
