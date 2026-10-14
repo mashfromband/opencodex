@@ -91,6 +91,7 @@ import {
   CYBER_POLICY_ERROR_CODE,
   CYBER_POLICY_FALLBACK_MESSAGE,
   adapterFailureFromMessage,
+  classifyError,
   isCyberPolicyCode,
   isCyberPolicyMessage,
 } from "../../lib/errors";
@@ -5487,6 +5488,22 @@ async function handleResponsesInner(
           parsed._responseModelId ?? parsed.modelId,
           translatorBudget,
         );
+      }
+      // Native passthrough failures do not enter the converted-adapter error path.
+      // Record only classified model overload after the existing bounded retry;
+      // structured auth/policy refusals must retain their terminal precedence.
+      if (!isFixedCodexAccount(authCtx) && upstreamResponse.status === 503) {
+        const failure = normalizeUpstreamErrorText(errorText, "Provider error 503");
+        const message = failure.message ?? failure.safeText;
+        if (classifyError(503, failure.type ?? "", message).code === "server_is_overloaded") {
+          recordSubagentQuotaFailureForThreadSpawn(
+            req.headers,
+            subagentQuotaFailureModel,
+            message,
+            config,
+            subagentFallbackAccountId,
+          );
+        }
       }
       return formatPassthroughUpstreamError(upstreamResponse.status, errorText, {
         statusText: upstreamResponse.statusText,

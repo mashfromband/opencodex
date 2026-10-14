@@ -2131,10 +2131,11 @@ describe("native passthrough terminal finalization", () => {
   }> {
     const now = 1_800_000_000_000;
     Date.now = () => now;
-    // A semantic 401 retires this synthetic credential. Each test owns a fresh
+    // A semantic 401 retires this synthetic credential. Each test owns a fresh account and
     // refresh-grant identity so rejection evidence cannot poison another test.
     const credentialId = ++streamCredentialSequence;
-    saveCodexAccountCredential("pool-a", {
+    const streamAccountId = `pool-stream-${credentialId}`;
+    saveCodexAccountCredential(streamAccountId, {
       accessToken: `pool-a-stream-${credentialId}-access`,
       refreshToken: `pool-a-stream-${credentialId}-refresh`,
       expiresAt: now + 24 * 60 * 60_000,
@@ -2142,10 +2143,11 @@ describe("native passthrough terminal finalization", () => {
     });
     const cfg = poolNativePlusRoutedConfig({
       streamMode,
-      activeCodexAccountId: "pool-a",
+      activeCodexAccountId: streamAccountId,
+      codexAccounts: [{ id: streamAccountId, email: "stream@example.test", isMain: false, chatgptAccountId: "pool_acc" }],
       subagentModelFallback: ["xai/grok-4.5"],
     });
-    updateAccountQuota("pool-a", 20, undefined, 20);
+    updateAccountQuota(streamAccountId, 20, undefined, 20);
 
     const terminals: ResponsesTerminalStatus[] = [];
     mockSseUpstream(sseBody);
@@ -2167,7 +2169,7 @@ describe("native passthrough terminal finalization", () => {
       await Bun.sleep(20);
       return {
         terminals,
-        healthBlocked: isModelHealthBlocked("gpt-5.5", cfg, "pool-a"),
+        healthBlocked: isModelHealthBlocked("gpt-5.5", cfg, streamAccountId),
         responseText,
       };
     } finally {
