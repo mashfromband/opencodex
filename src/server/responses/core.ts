@@ -983,9 +983,9 @@ async function attemptOpaqueBlobRecovery(
 }
 
 function nonEmptyProviderApiKey(provider: OcxProviderConfig): string | undefined {
-  return typeof provider.apiKey === "string" && provider.apiKey.trim().length > 0
+  return typeof provider.apiKey =[REDACTED] "string" && provider.apiKey.trim().length > 0
     ? provider.apiKey
-    : undefined;
+    : [REDACTED];
 }
 
 function isFixedCodexAccount(authCtx: CodexAuthContext): boolean {
@@ -1317,7 +1317,7 @@ async function retryCodexPoolOnAlternateAccount(
           admission: options.admission,
           codexAuthPolicy: options.codexAuthPolicy,
           modelId: route.modelId,
-          requestScopedMainCredential: hasForwardableCodexBearer(req.headers, config),
+          requestScopedMainCredential: [REDACTED](req.headers, config),
           beginCodexAccountSelection: codexAccountSelectionForTurn(options.turnAdmissionLease),
           resolveCodexModelEntitlements: entitlementResolver,
         },
@@ -1975,7 +1975,7 @@ function canPassThroughEncryptedV2AgentTask(
 }
 
 type ResponsesAuthResolution =
-  | { ok: true; authCtx: CodexAuthContext; headers: Headers; substituteMainCredential: boolean }
+  | { ok: true; authCtx: CodexAuthContext; headers: Headers; substituteMainCredential: [REDACTED] }
   | { ok: false; response: Response };
 
 /**
@@ -2010,9 +2010,9 @@ async function resolveResponsesCodexAuth(
     // bug; the transport is the authority, because the transport is what actually carries the
     // header. A key-authenticated routed provider is still not canonical-forward, so #2132's
     // no-ChatGPT-login install keeps working.
-    const substituteMainCredential = options.admission?.source === "bearer"
+    const substituteMainCredential = [REDACTED] === "bearer"
       && (route.codexAccountMode !== undefined || isCanonicalOpenAiForwardProvider(route.provider));
-    const requestScopedMainCredential = route.codexAccountMode !== undefined
+    const requestScopedMainCredential = [REDACTED] !== undefined
       && !substituteMainCredential
       && hasForwardableCodexBearer(req.headers, config);
     if (route.codexAccountMode === "direct" && !substituteMainCredential) {
@@ -2124,7 +2124,7 @@ async function refreshPoolForwardAuth(args: {
   config: OcxConfig;
   route: RouteResult;
   authCtx: CodexAuthContext & { kind: "pool" };
-  substituteMainCredential: boolean;
+  substituteMainCredential: [REDACTED];
   options: HandleResponsesOptions;
 }): Promise<
   | { ok: true; authCtx: CodexAuthContext; provider: OcxProviderConfig; headers: Headers }
@@ -2134,7 +2134,7 @@ async function refreshPoolForwardAuth(args: {
   try {
     const refreshed = await forceRefreshCodexPoolToken(authCtx.accountId, {
       rejectedGeneration: authCtx.generation,
-      rejectedAccessToken: authCtx.accessToken,
+      rejectedAccessToken: [REDACTED],
       signal: options.abortSignal,
     });
     if (!refreshed.rotated) {
@@ -2158,7 +2158,7 @@ async function refreshPoolForwardAuth(args: {
     }
     const refreshedAuthCtx: CodexAuthContext = {
       ...authCtx,
-      accessToken: refreshed.accessToken,
+      accessToken: [REDACTED],
       chatgptAccountId: refreshed.chatgptAccountId,
       generation: refreshed.generation,
     };
@@ -2200,7 +2200,7 @@ async function refreshNativeMainForwardAuth(args: {
   config: OcxConfig;
   route: RouteResult;
   authCtx: CodexAuthContext;
-  substituteMainCredential: boolean;
+  substituteMainCredential: [REDACTED];
   options: HandleResponsesOptions;
 }): Promise<
   | { ok: true; authCtx: CodexAuthContext; provider: OcxProviderConfig; headers: Headers }
@@ -2220,7 +2220,7 @@ async function refreshNativeMainForwardAuth(args: {
     }
     const refreshedAuthCtx: CodexAuthContext = {
       ...authCtx,
-      accessToken: refreshed.accessToken,
+      accessToken: [REDACTED],
       chatgptAccountId: refreshed.chatgptAccountId,
     };
     const provider = applyCodexAuthContextToProvider(
@@ -3674,13 +3674,13 @@ async function handleResponsesInner(
     pendingHostAdmissionLease = admission.lease;
   }
 
-  let substituteMainCredential = false;
+  let substituteMainCredential = [REDACTED];
   {
     const finalAuth = await resolveResponsesCodexAuth(req, config, route, options);
     if (!finalAuth.ok) return finalAuth.response;
     authCtx = finalAuth.authCtx;
     selectedForwardHeaders = finalAuth.headers;
-    substituteMainCredential = finalAuth.substituteMainCredential;
+    substituteMainCredential = [REDACTED];
   }
 
   route.provider = applyCodexAuthContextToProvider(route.provider, authCtx, route.codexAccountMode);
@@ -3724,8 +3724,8 @@ async function handleResponsesInner(
   let runTurnAdapter: ProviderAdapter;
   let sameTargetRequest: AdapterRequest | undefined;
   let sameTargetParsed: OcxParsedRequest | undefined;
-  let sameTargetToken = 0;
-  let transportToken = 0;
+  let sameTargetToken = [REDACTED];
+  let transportToken = [REDACTED];
   let imageTierBias = 0;
   const invalidateSameTargetRequest = (): void => { transportToken += 1; };
   type DispatchBinding =
@@ -3761,7 +3761,7 @@ async function handleResponsesInner(
       if (committed) {
         if (route.providerName === "anthropic" && !commitAnthropicSelectionRouting(
           candidate.accountId, oauthSelection, committed,
-          { config, sessionKey: anthropicSessionKey, reason: anthropicReason, expectedCredentialGeneration: candidate.generation },
+          { config, sessionKey: [REDACTED], reason: anthropicReason, expectedCredentialGeneration: candidate.generation },
         )) return null;
         oauthSelection = committed;
         servingOAuthSnapshot = candidate;
@@ -3826,7 +3826,7 @@ async function handleResponsesInner(
     const committed = await commitResolvedOAuthSelection(snapshot);
     if (!committed) return false;
     snapshot = committed;
-    let rotatedProvider: OcxProviderConfig = { ...route.provider, apiKey: snapshot.accessToken };
+    let rotatedProvider: OcxProviderConfig = { ...route.provider, apiKey: [REDACTED] };
     if (route.providerName === "github-copilot") {
       rotatedProvider = resolveProviderTransport(
         route.providerName,
@@ -4002,7 +4002,7 @@ async function handleResponsesInner(
         else requestBindings.delete(wireRequest);
         sameTargetRequest = wireRequest;
         sameTargetParsed = requestParsed;
-        sameTargetToken = transportToken;
+        sameTargetToken = [REDACTED];
         destination = rebuilt.url;
         dispatchInit = { ...dispatchInit, method: rebuilt.method, headers, body: rebuilt.body };
         bindRouteReasoningReplayScope({ parsed: requestParsed, providerName: route.providerName, provider: route.provider,
@@ -4012,7 +4012,7 @@ async function handleResponsesInner(
       throw new Error("OAuth account selection changed repeatedly before dispatch");
     };
   };
-  const anthropicSessionKey = route.providerName === "anthropic" && route.provider.authMode === "oauth"
+  const anthropicSessionKey = [REDACTED] === "anthropic" && route.provider.authMode === "oauth"
     ? anthropicSessionKeyFromParts({
       sessionIdHeader: sessionIdHeaderFromRequest(req.headers),
       threadIdHeader: req.headers.get("thread-id"),
@@ -4040,7 +4040,7 @@ async function handleResponsesInner(
         const admitted = await commitResolvedOAuthSelection(await getAnthropicPoolAccessSnapshot(selection.accountId), true, selection.reason);
         if (!admitted) return formatErrorResponse(409, "conflict_error", "OAuth account selection changed; retry the request");
         anthropicPoolAccountId = admitted.accountId;
-        route.provider = { ...route.provider, apiKey: admitted.accessToken };
+        route.provider = { ...route.provider, apiKey: [REDACTED] };
         logCtx.provider = formatAnthropicProviderForLog("anthropic", admitted.accountId, config);
       } else {
         // Prefer the account with known headroom BEFORE the first attempt. Rotation alone
@@ -4099,7 +4099,7 @@ async function handleResponsesInner(
           generation: resolved.generation,
         };
         if (isOAuth401ReplayProvider) sentOAuthSnapshot = resolved;
-        route.provider = { ...route.provider, apiKey: resolved.accessToken };
+        route.provider = { ...route.provider, apiKey: [REDACTED] };
         // Attribution is independent of failover (#2699): stamped from the resolved snapshot
         // itself, not from inside the `isGenericFailoverProvider` branch below, so a future
         // narrowing of that predicate cannot silently switch attribution off.
@@ -5047,7 +5047,7 @@ async function handleResponsesInner(
         route.providerName,
         {
           ...route.provider,
-          apiKey: refreshed.accessToken,
+          apiKey: [REDACTED],
           ...(refreshed.projectId ? { project: refreshed.projectId } : {}),
         },
         parsed.options.promptCacheKey,
@@ -5420,7 +5420,7 @@ async function handleResponsesInner(
           terminalRecorder(status, httpStatusOverride);
           if (status === "failed" || status === "incomplete") {
             const quotaFailureMessage = [httpStatusOverride, logCtx.terminalHttpStatus]
-              .find(value => value === 429 || value === 402);
+              .find(value => value === 429 || value === 402) ?? (logCtx.terminalHttpStatus === 503 ? logCtx.upstreamError : undefined);
             if (!isFixedCodexAccount(authCtx) && quotaFailureMessage !== undefined) {
               recordSubagentQuotaFailureForThreadSpawn(
                 req.headers,
@@ -5631,7 +5631,7 @@ async function handleResponsesInner(
             terminalRecorder?.(status, httpStatusOverride);
             if (status === "failed" || status === "incomplete") {
               const quotaFailureMessage = [httpStatusOverride, logCtx.terminalHttpStatus]
-                .find(value => value === 429 || value === 402);
+                .find(value => value === 429 || value === 402) ?? (logCtx.terminalHttpStatus === 503 ? logCtx.upstreamError : undefined);
               if (!isFixedCodexAccount(authCtx) && quotaFailureMessage !== undefined) {
                 recordSubagentQuotaFailureForThreadSpawn(
                   req.headers,
@@ -5721,7 +5721,7 @@ async function handleResponsesInner(
           terminalRecorder?.(status, httpStatusOverride);
           if (status === "failed" || status === "incomplete") {
             const quotaFailureMessage = [httpStatusOverride, logCtx.terminalHttpStatus]
-              .find(value => value === 429 || value === 402);
+              .find(value => value === 429 || value === 402) ?? (logCtx.terminalHttpStatus === 503 ? logCtx.upstreamError : undefined);
             if (!isFixedCodexAccount(authCtx) && quotaFailureMessage !== undefined) {
               recordSubagentQuotaFailureForThreadSpawn(
                 req.headers,
@@ -6054,7 +6054,7 @@ async function handleResponsesInner(
         if (!admitted) throw new Error("OAuth selection changed during recovery");
         anthropicPoolAccountId = admitted.accountId;
         anthropicPoolFailovers += 1;
-        route.provider = { ...route.provider, apiKey: admitted.accessToken };
+        route.provider = { ...route.provider, apiKey: [REDACTED] };
         logCtx.provider = formatAnthropicProviderForLog("anthropic", admitted.accountId, config);
       } catch {
         return null;
@@ -6232,7 +6232,7 @@ async function handleResponsesInner(
       geminiSidecar: wsPlan.geminiSidecar,
       xaiSearchOptions: wsPlan.xaiSearchOptions,
       // The exa key never rides the plan: read it from config at unpack time (L9).
-      ...(wsPlan.exaConfigured ? { exaApiKey: config.webSearchSidecar?.exaApiKey } : {}),
+      ...(wsPlan.exaConfigured ? { exaApiKey: [REDACTED] } : {}),
       hostedTool: wsPlan.hostedTool,
       selectedForwardHeaders: wsPlan.forwardSidecar?.headers ?? selectedForwardHeaders,
       settings: wsPlan.settings,
@@ -6713,7 +6713,7 @@ async function handleResponsesInner(
   const builtInitialRequest = initialRequest;
   sameTargetRequest = builtInitialRequest;
   sameTargetParsed = parsed;
-  sameTargetToken = transportToken;
+  sameTargetToken = [REDACTED];
   /**
    * Invalidate the same-target request cache. Every credential/adapter/parsed mutation MUST
    * go through here: the cache keys on `parsed` REFERENCE identity, so an in-place mutation
@@ -6807,7 +6807,7 @@ async function handleResponsesInner(
       recovery: AttemptRecoveryKind,
     ): Promise<Response | { failed: Response }> => {
       let retryRequest: AdapterRequest;
-      if (sameTargetRequest !== undefined && sameTargetParsed === parsed && sameTargetToken === transportToken) {
+      if (sameTargetRequest !== undefined && sameTargetParsed === parsed && sameTargetToken =[REDACTED] transportToken) {
         // Same target (key/adapter/parsed/tier unchanged): replay the exact cached request.
         retryRequest = sameTargetRequest;
       } else {
@@ -6831,7 +6831,7 @@ async function handleResponsesInner(
         }
         sameTargetRequest = retryRequest;
         sameTargetParsed = parsed;
-        sameTargetToken = transportToken;
+        sameTargetToken = [REDACTED];
       }
       refreshRoutedNamespaceToolAliases(retryRequest);
       const retryEstimate = typeof retryRequest.usageLog?.inputTokens === "number"
@@ -6934,7 +6934,7 @@ async function handleResponsesInner(
           route.providerName,
           {
             ...route.provider,
-            apiKey: refreshed.accessToken,
+            apiKey: [REDACTED],
             ...(refreshed.projectId ? { project: refreshed.projectId } : {}),
           },
           parsed.options.promptCacheKey,
@@ -7084,7 +7084,7 @@ async function handleResponsesInner(
           if (!admitted) throw new Error("OAuth selection changed during recovery");
           anthropicPoolAccountId = admitted.accountId;
           anthropicPoolFailovers += 1;
-          route.provider = { ...route.provider, apiKey: admitted.accessToken };
+          route.provider = { ...route.provider, apiKey: [REDACTED] };
           invalidateSameTargetRequest();
           logCtx.provider = formatAnthropicProviderForLog("anthropic", admitted.accountId, config);
           activeAdapter = resolveSelectionAdapter(
@@ -7236,7 +7236,7 @@ async function handleResponsesInner(
             baseUrl: route.provider.baseUrl,
             adapter: route.provider.adapter,
             authMode: route.provider.authMode,
-            hasApiKey: Boolean(route.provider.apiKey?.trim()),
+            hasApiKey: [REDACTED](route.provider.apiKey?.trim()),
             upstreamRetryAfter,
             // This recovery path is the HTTP Responses wire; custom runTurn transports
             // never reach enrichOpenCodeZenRateLimitMessage here.
@@ -7293,7 +7293,7 @@ async function handleResponsesInner(
      */
     const fetchContinuation = async (recoveryKind?: AttemptRecoveryKind): Promise<Response> => {
       let continuationRequest: AdapterRequest | undefined;
-      if (sameTargetRequest !== undefined && sameTargetParsed === nextParsed && sameTargetToken === transportToken) {
+      if (sameTargetRequest !== undefined && sameTargetParsed === nextParsed && sameTargetToken =[REDACTED] transportToken) {
         // Same target (key/adapter/parsed/tier unchanged): replay the exact cached request.
         continuationRequest = sameTargetRequest;
       } else {
@@ -7314,7 +7314,7 @@ async function handleResponsesInner(
         }
         sameTargetRequest = continuationRequest;
         sameTargetParsed = nextParsed;
-        sameTargetToken = transportToken;
+        sameTargetToken = [REDACTED];
       }
       // Both branches assign the request (the build catch rethrows), so capture it in a
       // const for the fetch callback and finally below — a `let` read inside a nested
@@ -7499,7 +7499,7 @@ async function handleResponsesInner(
             if (!admitted) throw new Error("OAuth selection changed during recovery");
             anthropicPoolAccountId = admitted.accountId;
             anthropicPoolFailovers += 1;
-            route.provider = { ...route.provider, apiKey: admitted.accessToken };
+            route.provider = { ...route.provider, apiKey: [REDACTED] };
             invalidateSameTargetRequest();
             logCtx.provider = formatAnthropicProviderForLog("anthropic", admitted.accountId, config);
             activeAdapter = resolveSelectionAdapter(

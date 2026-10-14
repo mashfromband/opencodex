@@ -126,7 +126,7 @@ function spawnHeaders(extra: HeadersInit = {}): Headers {
   return new Headers({
     "content-type": "application/json",
     "x-openai-subagent": "collab_spawn",
-    authorization: "Bearer caller-codex-token",
+    authorization: "Bearer [REDACTED]",
     ...Object.fromEntries(new Headers(extra)),
   });
 }
@@ -148,13 +148,13 @@ function poolNativePlusRoutedConfig(overrides: Partial<OcxConfig> = {}): OcxConf
         adapter: "openai-responses",
         baseUrl: "https://api.openai.com/v1",
         authMode: "key",
-        apiKey: "sk-test",
+        apiKey: "[REDACTED]",
       },
       xai: {
         adapter: "openai-chat",
         baseUrl: "https://api.x.ai/v1",
         authMode: "key",
-        apiKey: "xai-test",
+        apiKey: "[REDACTED]",
       },
     },
     codexAccounts: [
@@ -195,10 +195,10 @@ function codexRosterKey(headers: Headers): string {
   return headers.get("chatgpt-account-id") ?? headers.get("authorization") ?? "";
 }
 
-function installCodexRosterMock(rostersByCredential: Readonly<Record<string, readonly string[]>>): void {
+function installCodexRosterMock(rostersByCredential: [REDACTED]<Record<string, readonly string[]>>): void {
   globalThis.fetch = (async (input, init) => {
     if (isCodexModelsFetch(input)) {
-      const credential = codexRosterKey(new Headers(init?.headers));
+      const credential = [REDACTED](new Headers(init?.headers));
       return codexRosterResponse(rostersByCredential[credential] ?? []);
     }
     return originalFetch(input, init);
@@ -209,11 +209,11 @@ function mockUpstream(capture: {
   urls: string[];
   bodies: string[];
   auths: Array<string | null>;
-}, rostersByCredential: Readonly<Record<string, readonly string[]>> = {}): void {
+}, rostersByCredential: [REDACTED]<Record<string, readonly string[]>> = {}): void {
   globalThis.fetch = (async (input, init) => {
     const headers = new Headers(init?.headers);
     if (isCodexModelsFetch(input)) {
-      const credential = codexRosterKey(headers);
+      const credential = [REDACTED](headers);
       return codexRosterResponse(rostersByCredential[credential] ?? []);
     }
     const body = typeof init?.body === "string" ? init.body : "";
@@ -271,7 +271,7 @@ async function postDirectCodex(
       method: "POST",
       headers: {
         "content-type": "application/json",
-        authorization: "Bearer caller-codex-token",
+        authorization: "Bearer [REDACTED]",
         ...headers,
       },
       body: JSON.stringify(body),
@@ -302,6 +302,36 @@ function entitlementSnapshot(grants: Readonly<Record<string, readonly string[]>>
 }
 
 describe("subagent fallback without primary auth cooldown failure", () => {
+  test("HTTP capacity rejection blocks the model and the next spawn uses another native model", async () => {
+    const now = 1_800_000_000_000;
+    Date.now = () => now;
+    installPoolCredential("pool-a", "pool_acc", now);
+    updateAccountQuota("pool-a", 20, undefined, 20);
+    setSubagentQuotaPrimeForTests(async () => {});
+    const cfg = poolNativePlusRoutedConfig({ subagentModelFallback: ["gpt-5.4"] });
+    const models: string[] = [];
+    globalThis.fetch = (async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+      models.push(body.model);
+      if (models.length === 1) return Response.json({
+        error: { type: "server_error", message: "Selected model is at capacity. Please try a different model" },
+      }, { status: 503 });
+      return Response.json({ id: "resp_capacity_recovery", object: "response", status: "completed", model: body.model, output: [] });
+    }) as typeof fetch;
+    const body = { model: "gpt-5.5", input: readableAgentInput(), stream: false };
+    const rejected = await postSpawn(cfg, body);
+    expect(rejected.status).toBe(503);
+    await rejected.text();
+    expect(isModelHealthBlocked("gpt-5.5", cfg, "pool-a")).toBe(true);
+    expect(isModelHealthBlocked("gpt-5.5", cfg, "pool-b")).toBe(false);
+    const recovered = await postSpawn(cfg, body);
+    expect(recovered.status).toBe(200);
+    await recovered.text();
+    expect(models).toEqual(["gpt-5.5", "gpt-5.4"]);
+    Date.now = () => now + DEFAULT_SUBAGENT_MODEL_FALLBACK_POLL_MS;
+    expect(isModelHealthBlocked("gpt-5.5", cfg, "pool-a")).toBe(false);
+  });
+
   test("exact account child bypasses quota priming and fallback on an empty 503", async () => {
     const now = 1_800_000_000_000;
     Date.now = () => now;
@@ -470,7 +500,7 @@ describe("subagent fallback without primary auth cooldown failure", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "xai-test",
+          apiKey: "[REDACTED]",
         },
       },
       codexAccounts: [
@@ -529,7 +559,7 @@ describe("subagent fallback final-route normalization", () => {
           adapter: "openai-responses",
           baseUrl: "https://api.openai.com/v1",
           authMode: "key",
-          apiKey: "sk-test",
+          apiKey: "[REDACTED]",
         },
       },
       subagentModelFallback: ["openai-apikey/gpt-5.6-sol-pro"],
@@ -581,7 +611,7 @@ describe("subagent fallback final-route normalization", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "xai-test",
+          apiKey: "[REDACTED]",
         },
         openai: {
           adapter: "openai-responses",
@@ -631,7 +661,7 @@ describe("subagent fallback final-route normalization", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "xai-test",
+          apiKey: "[REDACTED]",
         },
         openai: {
           adapter: "openai-responses",
@@ -646,7 +676,7 @@ describe("subagent fallback final-route normalization", () => {
     noteSubagentModelFailure("grok-4.5", "429", cfg);
 
     const capture = { urls: [] as string[], bodies: [] as string[], auths: [] as Array<string | null> };
-    mockUpstream(capture, { "Bearer caller-codex-token": ["gpt-5.6-terra"] });
+    mockUpstream(capture, { "Bearer [REDACTED]": ["gpt-5.6-terra"] });
 
     const response = await postSpawn(cfg, {
       model: "xai/grok-4.5",
@@ -673,7 +703,7 @@ describe("subagent fallback final-route normalization", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "xai-test",
+          apiKey: "[REDACTED]",
         },
       },
       subagentModelFallback: ["xai/grok-4.5"],
@@ -709,7 +739,7 @@ describe("subagent fallback final-route normalization", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "xai-test",
+          apiKey: "[REDACTED]",
         },
         openai: {
           adapter: "openai-responses",
@@ -721,7 +751,7 @@ describe("subagent fallback final-route normalization", () => {
     });
 
     const capture = { urls: [] as string[], bodies: [] as string[], auths: [] as Array<string | null> };
-    mockUpstream(capture, { "Bearer caller-codex-token": ["gpt-5.6-terra"] });
+    mockUpstream(capture, { "Bearer [REDACTED]": ["gpt-5.6-terra"] });
 
     const response = await postSpawn(cfg, {
       model: "xai/grok-4.5",
@@ -750,7 +780,7 @@ describe("subagent fallback final-route normalization", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "xai-test",
+          apiKey: "[REDACTED]",
         },
       },
       subagentModelFallback: ["xai/grok-4.5"],
@@ -1155,7 +1185,7 @@ describe("native fallback account preview", () => {
     // If preview or pin retirement tried to score synthetic main, getMainAccountPlan
     // would have consumed the missing auth.json attempt and cached `undefined`.
     writeFileSync(join(testDir, "auth.json"), JSON.stringify({
-      tokens: { access_token: chatgptPlanJwt("pro"), account_id: "main-account" },
+      tokens: { access_token: [REDACTED]("pro"), account_id: "main-account" },
     }));
     expect(getMainAccountPlan()).toBe("pro");
   });
@@ -1201,7 +1231,7 @@ describe("native fallback account preview", () => {
     expect(claimCalls).toBe(1);
     expect(fetchCalls).toBe(0);
     writeFileSync(join(testDir, "auth.json"), JSON.stringify({
-      tokens: { access_token: chatgptPlanJwt("pro"), account_id: "main-account" },
+      tokens: { access_token: [REDACTED]("pro"), account_id: "main-account" },
     }));
     expect(getMainAccountPlan()).toBe("pro");
   });
@@ -1587,7 +1617,7 @@ describe("native fallback account preview", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "xai-test",
+          apiKey: "[REDACTED]",
         },
         openai: {
           adapter: "openai-responses",
@@ -1651,7 +1681,7 @@ describe("native fallback account preview", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "xai-test",
+          apiKey: "[REDACTED]",
         },
         openai: {
           adapter: "openai-responses",
@@ -1796,7 +1826,7 @@ describe("account-gated retry entitlement boundary", () => {
       const headers = new Headers(init?.headers);
       if (url.pathname.endsWith("/models")) {
         callerRosterReads += 1;
-        expect(headers.get("authorization")).toBe("Bearer caller-codex-token");
+        expect(headers.get("authorization")).toBe("Bearer [REDACTED]");
         expect(headers.get("chatgpt-account-id")).toBe("caller-main-account");
         return Response.json({
           models: [{ slug: model, supported_in_api: true, visibility: "list" }],
@@ -1827,8 +1857,8 @@ describe("account-gated retry entitlement boundary", () => {
 
     expect(response.status).toBe(200);
     expect(observed).toEqual([
-      { authorization: "Bearer pool-a_token", accountId: "pool_acc_a" },
-      { authorization: "Bearer caller-codex-token", accountId: "caller-main-account" },
+      { authorization: "Bearer [REDACTED]", accountId: "pool_acc_a" },
+      { authorization: "Bearer [REDACTED]", accountId: "caller-main-account" },
     ]);
     expect(callerRosterReads).toBe(1);
     expect(entitlementCalls).toBe(3);
@@ -1987,7 +2017,7 @@ describe("encrypted child native-only fallback", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "xai-test",
+          apiKey: "[REDACTED]",
         },
       },
     });
@@ -2019,7 +2049,7 @@ describe("encrypted child native-only fallback", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "xai-test",
+          apiKey: "[REDACTED]",
         },
         openai: {
           adapter: "openai-responses",
@@ -2049,7 +2079,7 @@ describe("encrypted child native-only fallback", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "xai-test",
+          apiKey: "[REDACTED]",
         },
         openai: {
           adapter: "openai-responses",
@@ -2064,7 +2094,7 @@ describe("encrypted child native-only fallback", () => {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          authorization: "Bearer caller-codex-token",
+          authorization: "Bearer [REDACTED]",
         },
         body: JSON.stringify({
           model: "xai/grok-4.5",
@@ -2136,6 +2166,22 @@ describe("native passthrough terminal finalization", () => {
   }
 
   for (const streamMode of ["legacy-tee", "eager-relay"] as const) {
+    test(`${streamMode}: capacity terminal records model health without replaying the stream`, async () => {
+      const result = await runStreamingSpawn(streamMode, failedSse(
+        "Selected model is at capacity. Please try a different model", "server_error",
+      ));
+      expect(result.terminals).toEqual(["failed"]);
+      expect(result.healthBlocked).toBe(true);
+      expect(result.responseText).toContain("Selected model is at capacity");
+    });
+
+    test(`${streamMode}: authentication terminal mentioning capacity stays terminal`, async () => {
+      const result = await runStreamingSpawn(streamMode, failedSse(
+        "Selected model is at capacity. Please try a different model", "authentication_error",
+      ));
+      expect(result.terminals).toEqual(["failed"]);
+      expect(result.healthBlocked).toBe(false);
+    });
     test(`${streamMode}: 429 failed records health and invokes terminal callback`, async () => {
       const result = await runStreamingSpawn(streamMode, failedSse("rate limited", "rate_limit_error"));
       expect(result.terminals).toEqual(["failed"]);
