@@ -126,7 +126,7 @@ function spawnHeaders(extra: HeadersInit = {}): Headers {
   return new Headers({
     "content-type": "application/json",
     "x-openai-subagent": "collab_spawn",
-    authorization: "Bearer [REDACTED]",
+    authorization: "Bearer caller-codex-token",
     ...Object.fromEntries(new Headers(extra)),
   });
 }
@@ -148,13 +148,13 @@ function poolNativePlusRoutedConfig(overrides: Partial<OcxConfig> = {}): OcxConf
         adapter: "openai-responses",
         baseUrl: "https://api.openai.com/v1",
         authMode: "key",
-        apiKey: "[REDACTED]",
+        apiKey: "sk-test",
       },
       xai: {
         adapter: "openai-chat",
         baseUrl: "https://api.x.ai/v1",
         authMode: "key",
-        apiKey: "[REDACTED]",
+        apiKey: "xai-test",
       },
     },
     codexAccounts: [
@@ -195,10 +195,10 @@ function codexRosterKey(headers: Headers): string {
   return headers.get("chatgpt-account-id") ?? headers.get("authorization") ?? "";
 }
 
-function installCodexRosterMock(rostersByCredential: [REDACTED]<Record<string, readonly string[]>>): void {
+function installCodexRosterMock(rostersByCredential: Readonly<Record<string, readonly string[]>>): void {
   globalThis.fetch = (async (input, init) => {
     if (isCodexModelsFetch(input)) {
-      const credential = [REDACTED](new Headers(init?.headers));
+      const credential = codexRosterKey(new Headers(init?.headers));
       return codexRosterResponse(rostersByCredential[credential] ?? []);
     }
     return originalFetch(input, init);
@@ -209,11 +209,11 @@ function mockUpstream(capture: {
   urls: string[];
   bodies: string[];
   auths: Array<string | null>;
-}, rostersByCredential: [REDACTED]<Record<string, readonly string[]>> = {}): void {
+}, rostersByCredential: Readonly<Record<string, readonly string[]>> = {}): void {
   globalThis.fetch = (async (input, init) => {
     const headers = new Headers(init?.headers);
     if (isCodexModelsFetch(input)) {
-      const credential = [REDACTED](headers);
+      const credential = codexRosterKey(headers);
       return codexRosterResponse(rostersByCredential[credential] ?? []);
     }
     const body = typeof init?.body === "string" ? init.body : "";
@@ -271,7 +271,7 @@ async function postDirectCodex(
       method: "POST",
       headers: {
         "content-type": "application/json",
-        authorization: "Bearer [REDACTED]",
+        authorization: "Bearer caller-codex-token",
         ...headers,
       },
       body: JSON.stringify(body),
@@ -500,7 +500,7 @@ describe("subagent fallback without primary auth cooldown failure", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "[REDACTED]",
+          apiKey: "xai-test",
         },
       },
       codexAccounts: [
@@ -559,7 +559,7 @@ describe("subagent fallback final-route normalization", () => {
           adapter: "openai-responses",
           baseUrl: "https://api.openai.com/v1",
           authMode: "key",
-          apiKey: "[REDACTED]",
+          apiKey: "sk-test",
         },
       },
       subagentModelFallback: ["openai-apikey/gpt-5.6-sol-pro"],
@@ -611,7 +611,7 @@ describe("subagent fallback final-route normalization", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "[REDACTED]",
+          apiKey: "xai-test",
         },
         openai: {
           adapter: "openai-responses",
@@ -661,7 +661,7 @@ describe("subagent fallback final-route normalization", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "[REDACTED]",
+          apiKey: "xai-test",
         },
         openai: {
           adapter: "openai-responses",
@@ -676,7 +676,7 @@ describe("subagent fallback final-route normalization", () => {
     noteSubagentModelFailure("grok-4.5", "429", cfg);
 
     const capture = { urls: [] as string[], bodies: [] as string[], auths: [] as Array<string | null> };
-    mockUpstream(capture, { "Bearer [REDACTED]": ["gpt-5.6-terra"] });
+    mockUpstream(capture, { "Bearer caller-codex-token": ["gpt-5.6-terra"] });
 
     const response = await postSpawn(cfg, {
       model: "xai/grok-4.5",
@@ -703,7 +703,7 @@ describe("subagent fallback final-route normalization", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "[REDACTED]",
+          apiKey: "xai-test",
         },
       },
       subagentModelFallback: ["xai/grok-4.5"],
@@ -739,7 +739,7 @@ describe("subagent fallback final-route normalization", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "[REDACTED]",
+          apiKey: "xai-test",
         },
         openai: {
           adapter: "openai-responses",
@@ -751,7 +751,7 @@ describe("subagent fallback final-route normalization", () => {
     });
 
     const capture = { urls: [] as string[], bodies: [] as string[], auths: [] as Array<string | null> };
-    mockUpstream(capture, { "Bearer [REDACTED]": ["gpt-5.6-terra"] });
+    mockUpstream(capture, { "Bearer caller-codex-token": ["gpt-5.6-terra"] });
 
     const response = await postSpawn(cfg, {
       model: "xai/grok-4.5",
@@ -780,7 +780,7 @@ describe("subagent fallback final-route normalization", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "[REDACTED]",
+          apiKey: "xai-test",
         },
       },
       subagentModelFallback: ["xai/grok-4.5"],
@@ -1185,7 +1185,7 @@ describe("native fallback account preview", () => {
     // If preview or pin retirement tried to score synthetic main, getMainAccountPlan
     // would have consumed the missing auth.json attempt and cached `undefined`.
     writeFileSync(join(testDir, "auth.json"), JSON.stringify({
-      tokens: { access_token: [REDACTED]("pro"), account_id: "main-account" },
+      tokens: { access_token: chatgptPlanJwt("pro"), account_id: "main-account" },
     }));
     expect(getMainAccountPlan()).toBe("pro");
   });
@@ -1231,7 +1231,7 @@ describe("native fallback account preview", () => {
     expect(claimCalls).toBe(1);
     expect(fetchCalls).toBe(0);
     writeFileSync(join(testDir, "auth.json"), JSON.stringify({
-      tokens: { access_token: [REDACTED]("pro"), account_id: "main-account" },
+      tokens: { access_token: chatgptPlanJwt("pro"), account_id: "main-account" },
     }));
     expect(getMainAccountPlan()).toBe("pro");
   });
@@ -1617,7 +1617,7 @@ describe("native fallback account preview", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "[REDACTED]",
+          apiKey: "xai-test",
         },
         openai: {
           adapter: "openai-responses",
@@ -1681,7 +1681,7 @@ describe("native fallback account preview", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "[REDACTED]",
+          apiKey: "xai-test",
         },
         openai: {
           adapter: "openai-responses",
@@ -1826,7 +1826,7 @@ describe("account-gated retry entitlement boundary", () => {
       const headers = new Headers(init?.headers);
       if (url.pathname.endsWith("/models")) {
         callerRosterReads += 1;
-        expect(headers.get("authorization")).toBe("Bearer [REDACTED]");
+        expect(headers.get("authorization")).toBe("Bearer caller-codex-token");
         expect(headers.get("chatgpt-account-id")).toBe("caller-main-account");
         return Response.json({
           models: [{ slug: model, supported_in_api: true, visibility: "list" }],
@@ -1857,8 +1857,8 @@ describe("account-gated retry entitlement boundary", () => {
 
     expect(response.status).toBe(200);
     expect(observed).toEqual([
-      { authorization: "Bearer [REDACTED]", accountId: "pool_acc_a" },
-      { authorization: "Bearer [REDACTED]", accountId: "caller-main-account" },
+      { authorization: "Bearer pool-a_token", accountId: "pool_acc_a" },
+      { authorization: "Bearer caller-codex-token", accountId: "caller-main-account" },
     ]);
     expect(callerRosterReads).toBe(1);
     expect(entitlementCalls).toBe(3);
@@ -2017,7 +2017,7 @@ describe("encrypted child native-only fallback", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "[REDACTED]",
+          apiKey: "xai-test",
         },
       },
     });
@@ -2049,7 +2049,7 @@ describe("encrypted child native-only fallback", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "[REDACTED]",
+          apiKey: "xai-test",
         },
         openai: {
           adapter: "openai-responses",
@@ -2079,7 +2079,7 @@ describe("encrypted child native-only fallback", () => {
           adapter: "openai-chat",
           baseUrl: "https://api.x.ai/v1",
           authMode: "key",
-          apiKey: "[REDACTED]",
+          apiKey: "xai-test",
         },
         openai: {
           adapter: "openai-responses",
@@ -2094,7 +2094,7 @@ describe("encrypted child native-only fallback", () => {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          authorization: "Bearer [REDACTED]",
+          authorization: "Bearer caller-codex-token",
         },
         body: JSON.stringify({
           model: "xai/grok-4.5",
